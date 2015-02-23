@@ -17,7 +17,9 @@ Requires the [petl](https://pypi.python.org/pypi/petl) Python [etl](http://en.wi
 ###Output:###
 
 - output.[iif](http://www.my-quickbooks-expert.com/import-quickbooks.html) file for QuickBooks
-- unprocessed.csv file with the unprocessed paypal.csv rows (some rows could not be automatically dealt with)
+- unprocessed.csv file with the unprocessed paypal.csv rows
+  - this contains all rows that could not be automatically converted into entries in the .iif file by this utility
+  - i.e. in the case where no rows could be processed, unprocessed.csv will be a verbatim copy of paypal.csv
 
 ###Implementation details###
 - Takes both input .csv files and put them into an SQLite database, joining on the common fields
@@ -31,9 +33,11 @@ Then generate `output.iif`:
 
 This is a text file, whose first three lines are:
 
+```
 !TRNS	DATE	ACCNT	NAME	CLASS	AMOUNT	MEMO
 !SPL	DATE	ACCNT	NAME	AMOUNT	MEMO
 !ENDTRNS
+```
 
 The next lines are a sequence of transactions:
 
