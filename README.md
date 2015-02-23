@@ -55,4 +55,4 @@ ENDTRNS
 ```
 Appears as:
 
-![](https://github.com/MichaelCurrie/TicketLeapToQuickBooks/documentation/deposit.jpeg)
+![](https://github.com/MichaelCurrie/TicketLeapToQuickBooks/blob/master/documentation/deposit.jpeg)
