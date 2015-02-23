@@ -54,3 +54,5 @@ SPL	"1/3/2015"	"Other Expenses"	Fee	7.04
 ENDTRNS
 ```
 Appears as:
+
+![](https://github.com/MichaelCurrie/TicketLeapToQuickBooks/documentation/deposit.jpeg)
