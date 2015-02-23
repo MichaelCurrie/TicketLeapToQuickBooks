@@ -5,8 +5,12 @@ Convert TicketLeap sales transaction data into a format readable by QuickBooks
 Assumes you have opted to use PayPal for your credit card processing.
 
 ##Implementation details##
-Take both input .csv files and put them into an SQLite database, joining on the common 
-Need to make sure date is properly represented
+- Take both input .csv files and put them into an SQLite database, joining on the common fields
+  - For ticketleap.csv, the fields are `Buyer Email`, `Date of Purchase`, `Ticket Net Proceeds`
+  - For paypal.csv, the fields are `From Email Address`, `Date`, `Gross`
+- This will likely only work for ticketleap.csv rows with `Order Method` = `Web-Online`, as the `Web-Onsite` ones appear to be the manual entries that do not appear in the PayPal record directly: they might have been settled with cash, or cheque, or by Grace or Michael manually invoicing ourselves and paying with the user's credit card.
+- Need to make sure date is properly represented (and just round to the nearest day since the paypal and ticketleap times will be slightly different)
+- There is still a possibility of someone making two orders for the exact same amount in the same day, but that just means a duplicate QuickBooks entry too, so that's okay.
 
 Then generate 
 
@@ -15,8 +19,8 @@ Then generate
 
 ###Input:###
 
-.csv file from TicketLeap
-.csv file from PayPal
+ticketleap.csv file from TicketLeap
+paypal.csv file from PayPal
 StartDate
 EndDate
 
