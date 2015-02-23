@@ -1,24 +1,26 @@
 # Paypal/TicketLeap To QuickBooks
-# pptl2qb.py
+## pptl2qb.py
 
 A little Python utility that converts TicketLeap sales transaction data into a format readable by QuickBooks (i.e. a .iif file)
 
 This utility assumes you have opted to use PayPal for your credit card processing.
 
+Requires the [petl](https://pypi.python.org/pypi/petl) Python [etl](http://en.wikipedia.org/wiki/Extract,_transform,_load) package.
+
 ###Input:###
 
-ticketleap.csv file from TicketLeap
-paypal.csv file from PayPal
-StartDate    (all dates before this date are not processed into the output file)
-EndDate      (all dates after this date are not processed into the output file)
+- ticketleap.csv file from TicketLeap
+- paypal.csv file from PayPal
+- StartDate    (all dates before this date are not processed into the output file)
+- EndDate      (all dates after this date are not processed into the output file)
 
 ###Output:###
 
-output.iif file for QuickBooks
-unprocessed.csv file with the unprocessed paypal.csv rows (some rows could not be automatically dealt with)
+- output.[iif](http://www.my-quickbooks-expert.com/import-quickbooks.html) file for QuickBooks
+- unprocessed.csv file with the unprocessed paypal.csv rows (some rows could not be automatically dealt with)
 
 ###Implementation details###
-- Take both input .csv files and put them into an SQLite database, joining on the common fields
+- Takes both input .csv files and put them into an SQLite database, joining on the common fields
   - For ticketleap.csv, the fields are `Buyer Email`, `Date of Purchase`, `Ticket Net Proceeds`
   - For paypal.csv, the corresponding fields are `From Email Address`, `Date`, `Gross`
 - This will likely only work for ticketleap.csv rows with `Order Method` = `Web-Online`, as the `Web-Onsite` ones appear to be the manual entries that do not appear in the PayPal record directly: they might have been settled with cash, or cheque, or by Grace or Michael manually invoicing ourselves and paying with the user's credit card.
