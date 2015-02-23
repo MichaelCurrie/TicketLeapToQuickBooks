@@ -4,6 +4,13 @@ Convert TicketLeap sales transaction data into a format readable by QuickBooks
 
 Assumes you have opted to use PayPal for your credit card processing.
 
+##Implementation details##
+Take both input .csv files and put them into an SQLite database, joining on the common 
+Need to make sure date is properly represented
+
+Then generate 
+
+
 ##Program specification##
 
 ###Input:###
@@ -39,3 +46,11 @@ Keyword	Description
 !VTYPE	    A list of vendor classifications you'd like to add to QuickBooks Vendor Type list.
 ```
 
+Each transaction is on a TRNS...ENDTRNS block:
+```
+TRNS	"1/3/2015"	"Paypal Account"	"Stephen Spielberg"	"Shopping Cart Payment Received"	225.46	"Memo for whole deposit"	
+SPL	"1/3/2015"	"Other Income"	"Stephen Spielberg"	-232.50
+SPL	"1/3/2015"	"Other Expenses"	Fee	7.04
+ENDTRNS
+```
+Appears as:
