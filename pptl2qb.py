@@ -13,7 +13,7 @@ http://dev.ticketleap.com/
 
 """
 
-# TODO: import petl as etl
+import petl as etl
 
 import sys
 import datetime
@@ -36,7 +36,7 @@ def main(argv):
 
     # TODO: open input_pp, input_tl
     #tl = etl.fromtsv('ticketleap.csv')
-    #pp = etl.fromtsv('paypal.csv')
+    pp = etl.fromcsv('paypal.csv')
 
     # TODO: transform those rows as necessary
     # follow this use case:
