@@ -174,7 +174,10 @@ def handle_customer_names(paypal):
                     'NOTEPAD', 'SALUTATION', 'COMPANYNAME', 'FIRSTNAME', 
                     'MIDINIT', 'LASTNAME']
     
-        
+    # TODO
+    # you shouldn't even need out_string
+    # you should be able to return a PETL table object that you can just 
+    # go table.appendtsv('output.iif') on!
     
     """ 
     {'NAME': 'Name', 
