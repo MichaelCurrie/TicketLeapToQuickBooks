@@ -8,15 +8,13 @@ PayPal API reference:
 https://developer.paypal.com/docs/api/
 
 TicketLeap API reference:
-http://dev.ticketleap.com/
+http://dev.TicketLeap.com/
 (for now the information is not detailed enough for use for transactions)
 
 """
 
 import petl as etl
-import csv
-
-import sys, os, datetime, time, string
+import csv, sys, os, datetime, time, string
 
 def main(argv):
     """
@@ -58,40 +56,47 @@ def paypal_to_quickbooks(paypal_path,
     # 1. LOAD PAYPAL CSV FILE
     print("Loading PayPal input file")
     paypal = etl.fromcsv(paypal_path)
+
     paypal = cleanup_paypal(paypal)
+
+    if start_date is not None:
+        # Eliminiate dates prior to start_date
+        paypal = paypal.selectge('Date', start_date)
+
+    if end_date is not None:
+        # Eliminiate dates after end_date
+        paypal = paypal.selectle('Date', end_date)
 
     # Any cancelled trades basically cancel, so we can eliminate most of them
     # right off the bat.
     paypal = eliminate_cancellations(paypal)
-
-    if start_date is not None:
-        # TODO: Elminiate dates prior to start_date
-        pass
-
-    if end_date is not None:
-        # TODO: Eliminiate dates after end_date
-        pass
-
-    
+   
     # DEBUG: TO NARROW THINGS FOR NOW
     #paypal = paypal.selecteq('Name', 'Alex Rossol')  
 
     # --------------------
     # 2. CREATE QUICKBOOKS IIF FILE
     print("Creating output IIF file")
+    # We always delete the file and start fresh
     try:
         os.remove(iif_path)
     except FileNotFoundError:
         # If the file wasn't there in the first place, no problem.
         pass
 
-    
-    #output_iif_file.write(handle_sales_receipts(paypal))
-    #output_iif_file.write(handle_invoices(paypal))
-    #output_iif_file.write(handle_ticketleap_fees(paypal))
-    handle_customer_names(paypal).appendtsv(iif_path, write_header=True)
+    # Start with the names data, add that to the .IIF file.
+    get_customer_names(paypal).appendtsv(iif_path, write_header=True)
 
-#    output_iif_file.close()
+    # TicketLeap fees have a header for both the transaction and the split
+    # so I have to write to the IIF file within the function
+    paypal = append_TicketLeap_fees(paypal, iif_path)
+
+    # TicketLeap sales receipts make up the bulk of the transactions
+    #paypal = append_sales_as_deposits(paypal, iif_path)
+
+    # Invoices are for tickets or for membership sales
+    paypal = append_invoices(paypal, iif_path)
+
 
     # --------------------
     # 3. CREATE UNPROCESSED ROWS FILE
@@ -99,8 +104,6 @@ def paypal_to_quickbooks(paypal_path,
 
     unprocessed_file = open(unprocessed_path, 'w')
     writer = csv.writer(unprocessed_file, lineterminator='\n')
-
-    # TODO: add ONLY the unprocessed rows to output_unprocessed_file    
     writer.writerows(paypal)
     unprocessed_file.close()
 
@@ -112,22 +115,11 @@ def eliminate_cancellations(paypal_given):
     Those remain, in the amount of $0.30.
     
     """
-
-    # Ignore cancelled invoices
-    paypal = paypal_given.select(lambda r: r['Status'] == 'Canceled' and 
-                              r['Type'] in ['Invoice Sent', 'Invoice item'],
-                           complement=True)
-
-    # Ignore refunded shopping cart items
-    paypal = paypal.select(lambda r: r['Type'] in ['Shopping Cart Item'] and
-                                     r['Status'] in ['Canceled', 'Refunded'],
-                           complement=True)
-
     # Type = 'Payment Sent', Status = 'Canceled'
     # cancels with
     # Type = 'Cancelled Payment', Status = 'Complete'
-    paypal = paypal.select(lambda r: r['Status'] in ['Canceled'] and 
-                                     r['Type'] in ['Payment Sent'],
+    paypal = paypal_given.select(lambda r: r['Status'] in ['Canceled'] and 
+                                           r['Type'] in ['Payment Sent'],
                            complement=True)
 
     paypal = paypal.select(lambda r: r['Status'] in ['Completed'] and 
@@ -152,41 +144,65 @@ def eliminate_cancellations(paypal_given):
                                      r['Type'] in ['Refund'],
                            complement=True)
 
-    # we have to obtain the cancelled transactions before changing the fee
-    # so the complement operation will work correctly
+    # Grab a copy of just the cancelled trades so we can verify they net to 0
+    # We have to obtain the cancelled transactions before changing the 
+    # PayPal fee so the complement operation will work correctly
     cancelled_transactions = etl.complement(paypal_given, paypal)
-    #TODO Validate that sum(Gross) = 0
 
-    paypal = paypal.convert('Gross', lambda v: 0.3, 
+    paypal = paypal.convert({'Fee': lambda v: -0.3, 'Gross': lambda v: 0},
                             where=lambda r: r['Type'] == 'Cancelled Fee' and 
                                             r['Name'] == 'PayPal' and
                                             r['Status'] == 'Completed')
 
-    # we have to perform this also to our view showing just the cancelled
-    # transactions, so we can run the validation step.
-    cancelled_transactions = cancelled_transactions.convert(
-                            'Gross', lambda v: 0.3, 
-                            where=lambda r: r['Type'] == 'Cancelled Fee' and 
-                                            r['Name'] == 'PayPal' and
-                                            r['Status'] == 'Completed')
+    num_fee_refunds = paypal.select(lambda r: r['Type'] == 'Cancelled Fee' and 
+                                           r['Name'] == 'PayPal' and
+                                           r['Status'] == 'Completed').nrows()
 
-    
-    #assert(sum(cancelled_transactions.cols['Gross'])==0)
+    # DEBUG: list the cancelled trades explicitly
+    #input_folder = 'C:\\Users\\Michael\\Desktop\\TicketLeapToQuickBooks'
+    #cancel_path = os.path.join(input_folder, 'cancelled_trades.csv')    
+    #cancelled_transactions.tocsv(cancel_path, write_header=True)
+
+    # Verify that our cancelled trades all net to 0    
+    # (We simply can't assert that the sum == 0 because of machine epsilon)
+    assert(abs(sum(cancelled_transactions.values('Gross').toarray())) < 0.01)
+
+    # The fees are supposed to cancel except for -num_fee_refunds * 0.3
+    assert(abs(sum(cancelled_transactions.values('Fee').toarray())-
+           -num_fee_refunds * 0.3) < 0.01)
+
+    # Finally, let's eliminate things that don't net against anything else
+    # but should still not appear in the transaction list:
+
+    # Ignore cancelled invoices (these don't net with anything but instead
+    # should never appear against the balance at all)
+    paypal = paypal.select(lambda r: r['Status'] == 'Canceled' and 
+                              r['Type'] in ['Invoice Sent', 'Invoice item'],
+                           complement=True)
+
+    # Ignore refunded shopping cart items  (again these don't net with 
+    # anything, they just serve to double-count the amount since they 
+    # double with Shopping Cart Payment Received, so we must eliminate them)
+    paypal = paypal.select(lambda r: r['Type'] in ['Shopping Cart Item'] and
+                                     r['Status'] in ['Canceled', 'Refunded'],
+                                 complement=True)
 
     return paypal
 
 
-def handle_sales_receipts(paypal):
+def append_sales_as_deposits(paypal, iif_path):
     """
     Take a paypal csv file (already sucked into PETL) and spit out
-    the sales receipts (in a string)
+    the deposits
     
     """
-    out_string = ""
-    
-    out_string += '!TRNS	DATE	ACCNT	NAME	CLASS	AMOUNT	MEMO\n'
-    out_string += '!SPL	DATE	ACCNT	NAME	AMOUNT	MEMO\n'
-    out_string += '!ENDTRNS\n'
+    source_fields = ['Type', 'Date', 'Name', 'Gross']
+
+    trns_fields = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
+                   'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
+
+    spl_fields  = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
+                   'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
 
     # Sales receipts are organized in the CSV file as a row to summarize,
     # (cart payment), plus one or more rows for each of the items purchased.
@@ -200,7 +216,9 @@ def handle_sales_receipts(paypal):
     cart_items = cart_items.cut('Item Title', 'Item ID', 'Quantity', 'Gross', 
                                 'Transaction ID')
 
-    # TODO ABORT IF EMPTY
+    # Abort if no sales occurred
+    if cart_payments.nrows() == 0:
+        return paypal
 
     for tranID in cart_payments.columns()['Transaction ID']:
         cur_cart_payment = cart_payments.selecteq('Transaction ID', tranID)
@@ -217,49 +235,115 @@ def handle_sales_receipts(paypal):
 
     # TODO WRITE CLOSING STATEMENT TO IIF
 
-    return out_string
+    return paypal
 
 
-def handle_invoices(paypal):
+def append_invoices(paypal, iif_path):
     """
     Take a paypal csv file (already sucked into PETL) and spit out
     the invoices and payments received for them
     
     """
-    out_string = ""
     # TODO
+    # Apparently a limitation of IIF files is that they can't associate
+    # a payment with an invoice, so we might be better off manually recording
+    # these
+    # AH - well we can at least record the invoices
+    # we'll have to manually record the payments against them.
     pass
-    return out_string
+    return paypal
 
 
-def handle_ticketleap_fees(paypal):
+def append_TicketLeap_fees(paypal, iif_path):
     """
-    Take a paypal csv file (already sucked into PETL) and spit out
-    the ticketleap payments (the fees they charge us for using TicketLeap)
+    Take a paypal csv file (already sucked into PETL) and append the
+    the TicketLeap payments (the fees they charge us for using TicketLeap)
+    to the .IIF file
+    
+    Return a slimmer paypal PETL table instance, with the rows associated
+    with TicketLeap payments removed.
     
     """
-    names_source_fields = ['Name', 'Email', 'To Email', 'Address Line 1', 
-                           'Address Line 2', 'Town/City', 'Province', 
-                           'Postal Code', 'Country', 'Phone']
+    source_fields = ['Type', 'Date', 'Gross']
 
-    names_dest_fields = ['!CUST', 'NAME', 'BADDR1', 'BADDR2', 'BADDR3', 
-                         'BADDR4', 'BADDR5', 'SADDR1', 'SADDR2', 'SADDR3', 
-                         'SADDR4', 'SADDR5', 'PHONE1', 'PHONE2', 'FAXNUM', 
-                         'EMAIL', 'NOTE', 'CONT1', 'CONT2', 'CTYPE', 'TERMS', 
-                         'TAXABLE', 'LIMIT', 'RESALENUM', 'REP', 'TAXITEM', 
-                         'NOTEPAD', 'SALUTATION', 'COMPANYNAME', 'FIRSTNAME', 
-                         'MIDINIT', 'LASTNAME']    
+    trns_fields = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
+                   'CLASS', 'AMOUNT', 'DOCNUM', 'CLEAR', 'TOPRINT', 
+                   'NAMEISTAXABLE', 'ADDR1', 'ADDR2', 'ADDR3', 'ADDR4', 
+                   'ADDR5']
+
+    spl_fields  = ['!SPL', 'SPLID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
+                   'CLASS', 'AMOUNT', 'DOCNUM', 'CLEAR', 'QNTY', 'PRICE', 
+                   'INVITEM', 'PAYMETH', 'TAXABLE', 'VALADJ', 'REIMBEXP']
+
+    # Here's how the QuickBooks file really maps to PayPal
+    trns_map = {}
+    trns_map['!TRNS'] = lambda r: 'TRNS'
+    trns_map['NAME'] = lambda r: 'TicketLeap'
+    trns_map['TRNSTYPE'] = lambda r: 'CHECK'
+    trns_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
+    trns_map['ACCNT'] = lambda r: 'PayPal Account'
+    trns_map['CLASS'] = lambda r: 'Other'
+    trns_map['AMOUNT'] = lambda r: abs(r['Gross'])
+    trns_map['CLEAR'] = lambda r: 'N'
+    trns_map['TOPRINT'] = lambda r: 'N'
+
+    spl_map = {}
+    spl_map['!SPL'] = lambda r: 'SPL'
+    spl_map['TRNSTYPE'] = lambda r: 'CHECK'
+    spl_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
+    spl_map['ACCNT'] = lambda r: 'Operational Expenses:Association Administration:Bank Fees:PayPal Fees'
+    spl_map['CLASS'] = lambda r: 'Other'
+    spl_map['AMOUNT'] = lambda r: abs(r['Gross'])
+    spl_map['CLEAR'] = lambda r: 'N'
+    spl_map['REIMBEXP'] = lambda r: 'NOTHING'
+
 
     fees = paypal.selecteq('Type', 'Preapproved Payment Sent')
-    
-    #fees = fees.cut(')
-    out_string = ""
-    # TODO
-    pass
-    return out_string
+    fees_cut = fees.cut(*source_fields)
+
+    trns_table = fees_cut.addrownumbers()
+    spl_table = fees_cut.addrownumbers()
+
+    for field in trns_fields:
+        if field in trns_map:
+            trns_table = trns_table.addfield(field, trns_map[field])
+        else:
+            trns_table = trns_table.addfield(field, '')
+
+    for field in spl_fields:
+        if field in spl_map:
+            spl_table = spl_table.addfield(field, spl_map[field])
+        else:
+            spl_table = spl_table.addfield(field, '')
+
+    trns_table = trns_table.cutout(*source_fields)
+    spl_table = spl_table.cutout(*source_fields)
+    trns_table = trns_table.cutout('row')
+    spl_table = spl_table.cutout('row')
+
+    iif_file = open(iif_path, 'a')
+    writer = csv.writer(iif_file, delimiter='\t', lineterminator='\n')
+
+    # .IIF HEADER
+    writer.writerow(trns_table.header())
+    writer.writerow(spl_table.header())
+    writer.writerow(['!ENDTRNS'])
+
+    trns_data = trns_table.data()
+    spl_data = spl_table.data()
+
+    # Now write each transaction one at a time
+    for row_num in range(len(trns_data)):
+        writer.writerow(trns_data[row_num])
+        writer.writerow(spl_data[row_num])
+        writer.writerow(['ENDTRNS'])
+
+    iif_file.close()
+   
+    return etl.complement(paypal, fees)    
 
 
-def handle_customer_names(paypal):
+def get_customer_names(paypal):
     """
     Take a paypal csv file (already sucked into PETL) and spit out
     a petl table of the unique customer names
@@ -268,7 +352,7 @@ def handle_customer_names(paypal):
     names_source_fields = ['Name', 'Email', 'To Email', 'Address Line 1', 
                            'Address Line 2', 'Town/City', 'Province', 
                            'Postal Code', 'Country', 'Phone']
-
+    """
     names_dest_fields = ['!CUST', 'NAME', 'BADDR1', 'BADDR2', 'BADDR3', 
                          'BADDR4', 'BADDR5', 'SADDR1', 'SADDR2', 'SADDR3', 
                          'SADDR4', 'SADDR5', 'PHONE1', 'PHONE2', 'FAXNUM', 
@@ -276,7 +360,8 @@ def handle_customer_names(paypal):
                          'TAXABLE', 'LIMIT', 'RESALENUM', 'REP', 'TAXITEM', 
                          'NOTEPAD', 'SALUTATION', 'COMPANYNAME', 'FIRSTNAME', 
                          'MIDINIT', 'LASTNAME']
-
+    """
+    
     # The names associated with these are already in the payment
     names = paypal.selectne('Type', 'Invoice item')
     names =  names.selectne('Type', 'Shopping Cart Item')
@@ -289,6 +374,9 @@ def handle_customer_names(paypal):
 
     # Remove duplicates    
     names = names.distinct()
+
+    # Remove some entries 
+    names = names.selectne('Name', 'Bank Account')
 
     # TODO: ensure that 'NAME' doesn't already exist in QuickBooks? How does
     # or maybe just prevent that vendor/customer error by appending '(c)' 
