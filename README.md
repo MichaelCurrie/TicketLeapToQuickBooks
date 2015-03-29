@@ -1,15 +1,14 @@
-# Paypal/TicketLeap To QuickBooks
+# Paypal To QuickBooks
 ## pptl2qb.py
 
-A little Python utility that converts TicketLeap sales transaction data into a format readable by QuickBooks (i.e. a .iif file)
-
-This utility assumes you have opted to use PayPal for your credit card processing.
+A little Python utility that converts PayPal transaction data into a format readable by QuickBooks (i.e. a .iif file)
 
 Requires the [petl](https://pypi.python.org/pypi/petl) Python [etl](http://en.wikipedia.org/wiki/Extract,_transform,_load) package.
 
+Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html for providing essential .iif file examples.
+
 ###Input:###
 
-- ticketleap.csv file from TicketLeap
 - paypal.csv file from PayPal
 - StartDate    (all dates before this date are not processed into the output file)
 - EndDate      (all dates after this date are not processed into the output file)
