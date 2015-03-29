@@ -204,6 +204,44 @@ def append_sales_as_deposits(paypal, iif_path):
     spl_fields  = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
                    'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
 
+    fee_acct = 'Operational Expenses:Association Administration:Bank Fees:PayPal Fees'
+    ticket_sales_acct = 'Competition Income:Sales:Tickets:Advance Tickets'
+
+    # Here's how the QuickBooks file really maps to PayPal
+    trns_map = {}
+    trns_map['!TRNS'] = lambda r: 'TRNS'
+    trns_map['TRNSTYPE'] = lambda r: 'DEPOSIT'
+    trns_map['NAME'] = lambda r: r['Name']
+    trns_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
+    trns_map['ACCNT'] = lambda r: 'PayPal Account'
+    trns_map['CLASS'] = lambda r: 'Other'  # DEBUG
+    trns_map['AMOUNT'] = lambda r: r['Gross']
+    trns_map['MEMO'] = lambda r: 'TicketLeap ticket sale (Python auto-loaded)'
+    trns_map['CLEAR'] = lambda r: 'N'
+    
+    spl_map = {}
+    spl_map['!SPL'] = lambda r: 'SPL'
+    spl_map['TRNSTYPE'] = lambda r: 'DEPOSIT'
+    spl_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
+    spl_map['CLEAR'] = lambda r: 'N'
+
+
+
+    spl_map['CLASS'] = lambda r: 'Other'   # DEBUG: figure out dynamically
+
+    # The ticket sale
+    spl_map['NAME'] = lambda r: r['Name']
+    spl_map['ACCNT'] = lambda r: ticket_sales_acct
+    spl_map['MEMO'] = lambda r: r['Item Title'] + ' ' + r['Item ID']
+    spl_map['AMOUNT'] = lambda r: abs(r['Gross'])
+
+    # The fees
+    spl_map['ACCNT'] = lambda r: fee_acct
+    spl_map['MEMO'] = lambda r: 'Standard PayPal $0.30 + 2.9% for TicketLeap ticket sale fulfillment'
+    spl_map['AMOUNT'] = lambda r: -abs(r['Fee'])  # DEBUG: must be summed
+
+    
+    
     # Sales receipts are organized in the CSV file as a row to summarize,
     # (cart payment), plus one or more rows for each of the items purchased.
     cart_payments = paypal.selecteq('Type', 'Shopping Cart Payment Received')
@@ -222,7 +260,7 @@ def append_sales_as_deposits(paypal, iif_path):
 
     for tranID in cart_payments.columns()['Transaction ID']:
         cur_cart_payment = cart_payments.selecteq('Transaction ID', tranID)
-        cur_cart_items = cart_items.selecteq('Transaction ID', tranID).columns()
+        cur_cart_items = cart_items.selecteq('Transaction ID', tranID)
 
         # TODO ABORT IF EMPTY
 
