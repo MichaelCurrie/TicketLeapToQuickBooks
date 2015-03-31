@@ -26,6 +26,7 @@ def append_sales_as_deposits(paypal, iif_path):
     the deposits
     
     """
+    # SPECIFY SOURCE/DEST FIELD NAMES
     payment_source_fields = ['Date', 'Name', 'Email', 'Gross', 'Fee', 
                              'Transaction ID']
 
@@ -35,12 +36,17 @@ def append_sales_as_deposits(paypal, iif_path):
     trns_fields = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
                    'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
 
+    # "spl" for "split", a term in QuickBooks for how a transaction is broken
+    # down (or "split") into the items underlying the transaction
+    # Like if you spent $10, the split might be two rows: $2 for a banana and 
+    # $8 for a magazine.
     spl_fields  = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
                    'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
 
     fee_acct = 'Operational Expenses:Association Administration:Bank Fees:PayPal Fees'
     ticket_sales_acct = 'Competition Income:Sales:Tickets:Advance Tickets'
 
+    # SPECIFY SOURCE/DEST MAPPINGS
     # Here's how the QuickBooks file really maps to PayPal
     trns_map = {}
     trns_map['!TRNS'] = lambda r: 'TRNS'
@@ -73,6 +79,7 @@ def append_sales_as_deposits(paypal, iif_path):
     spl_map_fee['MEMO'] = lambda r: 'Standard PayPal $0.30 + 2.9% for TicketLeap ticket sale fulfillment'
     spl_map_fee['AMOUNT'] = lambda r: -abs(r['Fee'])
 
+    # PREPARE CART PAYMENTS TABLE
     # Sales receipts are organized in the CSV file as a row to summarize,
     # (cart payment), plus one or more rows for each of the items purchased.
     cart_payments = paypal.selecteq('Type', 'Shopping Cart Payment Received')
@@ -85,30 +92,19 @@ def append_sales_as_deposits(paypal, iif_path):
 
     cart_payments_cut = cart_payments.cut(*payment_source_fields)
 
+    # PREPARE CART ITEMS TABLE
     cart_items = paypal.selecteq('Type', 'Shopping Cart Item')
     cart_items_cut = cart_items.cut(*item_source_fields)
 
+    # WRITE THE IIF FILE
     iif_file = open(iif_path, 'a')
     writer = csv.writer(iif_file, delimiter='\t', lineterminator='\n')
-
-    # We just do this here to be able to write the header 
-    # (probably inefficient to do it this way)
-    trns_table = get_tables_from_mapping(cart_payments_cut, 
-                                         trns_fields, trns_map)
-    spl_table = get_tables_from_mapping(cart_items_cut, 
-                                         spl_fields, spl_map)
-
     # Write the .IIF header
-    writer.writerow(trns_table.header())
-    writer.writerow(spl_table.header())
+    writer.writerow(trns_fields)
+    writer.writerow(spl_fields)
     writer.writerow(['!ENDTRNS'])
 
-    # This is not necessary but I want to emphasise that the trns_table and
-    # spl_table were only used for the header and the ones used in the for 
-    # loop are different!
-    trns_table = None
-    spl_table = None
-
+    # Write each transaction to the IIF file
     for tranID in cart_payments.columns()['Transaction ID']:
         cur_cart_payment = cart_payments_cut.selecteq('Transaction ID', tranID)
         cur_cart_items = cart_items_cut.selecteq('Transaction ID', tranID)
@@ -136,16 +132,19 @@ def append_sales_as_deposits(paypal, iif_path):
         # (2) Handle the split lines for the cart items
         spl_sale_table = get_tables_from_mapping(cur_cart_items, 
                                             spl_fields, spl_map_sale)
-        for item_number in range(len(cur_cart_items)):
+                                            
+        spl_sale_data = spl_sale_table.data()
+        for item_number in range(len(spl_sale_data)):
             # Record the sale lines itemizing what was in the cart
-            writer.writerow(spl_sale_table.data()[item_number])
+            writer.writerow(spl_sale_data[item_number])
 
         #---------------
         # Write each transactions' closing statement in the IIF
         writer.writerow(['ENDTRNS'])
 
     iif_file.close()
-   
+
+    # RETURN UNUSED ROWS
     # Return the original paypal table, minus all the entries
     # we just processed
     paypal_without_cart_sales = etl.complement(paypal, cart_payments)
