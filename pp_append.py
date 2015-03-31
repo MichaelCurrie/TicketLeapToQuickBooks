@@ -125,13 +125,13 @@ def append_sales_as_deposits(paypal, iif_path):
 
         # (1) The fee associated with the whole transaction.
         spl_fee_table = get_tables_from_mapping(cur_cart_payment, 
-                                            spl_fields, spl_map_fee)
+                                                spl_fields, spl_map_fee)
         # Again we can ssume there's one row (see assert above)
         writer.writerow(spl_fee_table.data()[0]) 
 
         # (2) Handle the split lines for the cart items
         spl_sale_table = get_tables_from_mapping(cur_cart_items, 
-                                            spl_fields, spl_map_sale)
+                                                 spl_fields, spl_map_sale)
                                             
         spl_sale_data = spl_sale_table.data()
         for item_number in range(len(spl_sale_data)):
