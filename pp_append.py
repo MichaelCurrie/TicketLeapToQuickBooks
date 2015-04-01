@@ -49,6 +49,7 @@ def append_sales_as_deposits(paypal, iif_path):
     # Here's how the QuickBooks file really maps to PayPal
     trns_map = {}
     trns_map['!TRNS'] = lambda r: 'TRNS'
+
     trns_map['TRNSTYPE'] = lambda r: 'DEPOSIT'
     trns_map['NAME'] = lambda r: r['Name']
     trns_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
@@ -60,6 +61,7 @@ def append_sales_as_deposits(paypal, iif_path):
     
     spl_map = {}
     spl_map['!SPL'] = lambda r: 'SPL'
+    spl_map['TRNSID'] = lambda r: ' '
     spl_map['TRNSTYPE'] = lambda r: 'DEPOSIT'
     spl_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
     spl_map['CLEAR'] = lambda r: 'N'
@@ -228,20 +230,27 @@ def append_TicketLeap_fees(paypal, iif_path):
     # Here's how the QuickBooks file really maps to PayPal
     trns_map = {}
     trns_map['!TRNS'] = lambda r: 'TRNS'
+    trns_map['TRNSID'] = lambda r: ' '
+    trns_map['DOCNUM'] = lambda r: ' '
+    trns_map['NAMEISTAXABLE'] = lambda r: ' '
     trns_map['NAME'] = lambda r: 'TicketLeap'
     trns_map['TRNSTYPE'] = lambda r: 'CHECK'
     trns_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
     trns_map['ACCNT'] = lambda r: 'PayPal Account'
     trns_map['CLASS'] = lambda r: 'Other'
-    trns_map['AMOUNT'] = lambda r: abs(r['Gross'])
+    # For some reason QuickBooks requires that the cheque total amount be 
+    # negative, but each item is positive.
+    trns_map['AMOUNT'] = lambda r: -abs(r['Gross'])  
     trns_map['CLEAR'] = lambda r: 'N'
     trns_map['TOPRINT'] = lambda r: 'N'
 
     spl_map = {}
     spl_map['!SPL'] = lambda r: 'SPL'
+    spl_map['SPLID'] = lambda r: ' '
     spl_map['TRNSTYPE'] = lambda r: 'CHECK'
     spl_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
-    spl_map['ACCNT'] = lambda r: 'Operational Expenses:Association Administration:Bank Fees:PayPal Fees'
+    spl_map['ACCNT'] = lambda r: 'Operational Expenses:Association ' + \
+                                 'Administration:Bank Fees:PayPal Fees'
     spl_map['CLASS'] = lambda r: 'Other'
     spl_map['AMOUNT'] = lambda r: abs(r['Gross'])
     spl_map['CLEAR'] = lambda r: 'N'
@@ -258,17 +267,17 @@ def append_TicketLeap_fees(paypal, iif_path):
     writer = csv.writer(iif_file, delimiter='\t', lineterminator='\n')
 
     # .IIF HEADER
-    writer.writerow(trns_table.header())
-    writer.writerow(spl_table.header())
-    writer.writerow(['!ENDTRNS'])
+    writer.writerow(list(trns_table.header()) + ['']*15)
+    writer.writerow(list(spl_table.header())  + ['']*15)
+    writer.writerow(['!ENDTRNS']+['']*31)
 
     trns_data = trns_table.data()
     spl_data = spl_table.data()
 
     # Now write each transaction one at a time
     for row_num in range(len(trns_data)):
-        writer.writerow(trns_data[row_num])
-        writer.writerow(spl_data[row_num])
+        writer.writerow(list(trns_data[row_num]) + ['']*15)
+        writer.writerow(list(spl_data[row_num]) + ['']*15)
         writer.writerow(['ENDTRNS'])
 
     iif_file.close()
