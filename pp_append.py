@@ -71,7 +71,7 @@ def append_sales_as_deposits(paypal, iif_path):
     spl_map_sale['NAME'] = lambda r: r['Name']
     spl_map_sale['ACCNT'] = lambda r: ticket_sales_acct
     spl_map_sale['MEMO'] = lambda r: r['Item Title'] + ' ' + r['Item ID']
-    spl_map_sale['AMOUNT'] = lambda r: abs(r['Gross'])
+    spl_map_sale['AMOUNT'] = lambda r: abs(r['Gross']) if r['Gross'] is not None else 'NULL!'
 
     # The fee (associated with the payment)
     spl_map_fee = spl_map.copy()

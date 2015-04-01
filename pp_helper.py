@@ -25,16 +25,17 @@ def cleanup_paypal(paypal):
     paypal_clean = paypal.setheader(list((x.strip() for x in paypal.header())))
 
     # Rename some header names to more convenient names
-    paypal_clean = paypal_clean.rename('From Email Address', 'Email') # sales receipts
-    paypal_clean = paypal_clean.rename('To Email Address', 'To Email') # invoices, payments
+        # Sales receipts:
+    paypal_clean = paypal_clean.rename('From Email Address', 'Email') 
+    paypal_clean = paypal_clean.rename('To Email Address', 'To Email') 
+        # Invoices, payments:
     paypal_clean = paypal_clean.rename('Contact Phone Number', 'Phone')
     paypal_clean = paypal_clean.rename('Zip/Postal Code', 'Postal Code')
-    paypal_clean = paypal_clean.rename(
-        'State/Province/Region/County/Territory/Prefecture/Republic',
-        'Province')
-    paypal_clean = paypal_clean.rename(
-        'Address Line 2/District/Neighborhood',
-        'Address Line 2')
+    paypal_clean = paypal_clean.rename('State/Province/Region/County/'
+                                       'Territory/Prefecture/Republic',
+                                       'Province')
+    paypal_clean = paypal_clean.rename('Address Line 2/District/Neighborhood',
+                                       'Address Line 2')
 
     # It seems that Quickbooks requires that phone numbers be entirely 
     # composed of digits, e.g. 4035559195 instead of 403-555-9195
@@ -42,7 +43,7 @@ def cleanup_paypal(paypal):
                        lambda v: ''.join(c for c in v if c in string.digits))
 
     # Get rid of columns that are not needed
-    paypal_clean = paypal_clean.cutout(
+    paypal_clean = paypal_clean.cutout('Time',
         'Shipping and Handling Amount', 'Insurance Amount', 'Sales Tax', 
         'Option 1 Name', 'Option 1 Value', 'Option 2 Name', 'Option 2 Value', 
         'Auction Site', 'Buyer ID', 'Item URL', 'Closing Date', 'Escrow Id', 
@@ -57,15 +58,15 @@ def cleanup_paypal(paypal):
                                 ex_struct_time.tm_mday)
         return ex_date
 
-    paypal_clean = etl.transform.conversions.convert(paypal_clean,
-                                                     'Date', 
-                                                     convert_ppdate)
+    paypal_clean = paypal_clean.convert('Date', convert_ppdate)
 
+    # Convert all figures like "1,000.00" to "1000.00"
+    paypal_clean = paypal_clean.convert(('Gross', 'Fee', 'Quantity'),
+                                        lambda v: v.replace(',',''))
     # Convert the money and quantity columns from string to float
-    paypal_clean = etl.transform.conversions.convert(paypal_clean, 
-                                                     ('Gross', 'Fee', 
-                                                      'Quantity'),
-                                                     float)
+    paypal_clean = paypal_clean.convert(('Gross', 'Fee', 'Quantity'),
+                                        float)
+
     return paypal_clean
 
 
@@ -111,7 +112,7 @@ def eliminate_cancellations(paypal_given):
     # PayPal fee so the complement operation will work correctly
     cancelled_transactions = etl.complement(paypal_given, paypal)
 
-    paypal = paypal.convert({'Fee': lambda v: -0.3, 'Gross': lambda v: 0},
+    paypal = paypal.convert({'Fee': lambda v: -0.3, 'Gross': lambda v: 0}, 
                             where=lambda r: r['Type'] == 'Cancelled Fee' and 
                                             r['Name'] == 'PayPal' and
                                             r['Status'] == 'Completed')

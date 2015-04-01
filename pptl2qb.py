@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Feb 22 22:09:50 2015
-
-@author: mcurrie
+@author: @MichaelCurrie
 
 PayPal API reference:
 https://developer.paypal.com/docs/api/
@@ -26,8 +24,8 @@ def main(argv):
     
     """
     etl.config.look_style = 'minimal'
-    #input_folder = 'C:\\Users\\mcurrie\\Desktop\\GitHub\\TicketLeapToQuickBooks'
-    input_folder = 'C:\\Users\\Michael\\Desktop\\TicketLeapToQuickBooks'
+    input_folder = 'C:\\Users\\mcurrie\\Desktop\\GitHub\\TicketLeapToQuickBooks'
+    #input_folder = 'C:\\Users\\Michael\\Desktop\\TicketLeapToQuickBooks'
     paypal_path = os.path.join(input_folder, 'paypal.csv')
 
     paypal_to_quickbooks(paypal_path, 
@@ -74,9 +72,6 @@ def paypal_to_quickbooks(paypal_path,
     # right off the bat.
     paypal = eliminate_cancellations(paypal)
    
-    # DEBUG: TO NARROW THINGS FOR NOW
-    #paypal = paypal.selecteq('Name', 'Alex Rossol')  
-
     # --------------------
     # 2. CREATE QUICKBOOKS IIF FILE
     print("Creating output IIF file")
@@ -103,8 +98,8 @@ def paypal_to_quickbooks(paypal_path,
 
     # --------------------
     # 3. CREATE UNPROCESSED ROWS FILE
-    print("Creating output unprocessed rows CSV file (" + str(paypal.nrows()) +
-          " rows)")
+    print("Creating output unprocessed rows CSV file (" + 
+          str(paypal.nrows()) + " rows)")
 
     unprocessed_file = open(unprocessed_path, 'w')
     writer = csv.writer(unprocessed_file, lineterminator='\n')
