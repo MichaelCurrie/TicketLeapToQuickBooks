@@ -60,6 +60,13 @@ def cleanup_paypal(paypal):
 
     paypal_clean = paypal_clean.convert('Date', convert_ppdate)
 
+    # Workaround to avoid the strange bug described here
+    # Set all days before the 13th of any given month to the 13th of 
+    # that month.
+    # https://github.com/MichaelCurrie/TicketLeapToQuickBooks/issues/1
+    paypal_clean = paypal_clean.convert('Date',
+        lambda v: datetime.date(v.year, v.month, 13) if v.day < 13 else v)
+
     # Convert all figures like "1,000.00" to "1000.00"
     paypal_clean = paypal_clean.convert(('Gross', 'Fee', 'Quantity'),
                                         lambda v: v.replace(',',''))

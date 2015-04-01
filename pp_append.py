@@ -44,7 +44,6 @@ def append_sales_as_deposits(paypal, iif_path):
                    'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
 
     fee_acct = 'Operational Expenses:Association Administration:Bank Fees:PayPal Fees'
-    ticket_sales_acct = 'Competition Income:Sales:Tickets:Advance Tickets'
 
     # SPECIFY SOURCE/DEST MAPPINGS
     # Here's how the QuickBooks file really maps to PayPal
@@ -54,7 +53,7 @@ def append_sales_as_deposits(paypal, iif_path):
     trns_map['NAME'] = lambda r: r['Name']
     trns_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
     trns_map['ACCNT'] = lambda r: 'PayPal Account'
-    trns_map['CLASS'] = lambda r: 'Other'  # DEBUG
+    trns_map['CLASS'] = lambda r: ''  # The real class is in the split items
     trns_map['AMOUNT'] = lambda r: r['Gross']
     trns_map['MEMO'] = lambda r: 'TicketLeap ticket sale (Python auto-loaded)'
     trns_map['CLEAR'] = lambda r: 'N'
@@ -64,14 +63,12 @@ def append_sales_as_deposits(paypal, iif_path):
     spl_map['TRNSTYPE'] = lambda r: 'DEPOSIT'
     spl_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
     spl_map['CLEAR'] = lambda r: 'N'
-    spl_map['CLASS'] = lambda r: 'Other'   # DEBUG: figure out dynamically
 
     # The ticket sale
     spl_map_sale = spl_map.copy()
     spl_map_sale['NAME'] = lambda r: r['Name']
-    spl_map_sale['ACCNT'] = lambda r: ticket_sales_acct
     spl_map_sale['MEMO'] = lambda r: r['Item Title'] + ' ' + r['Item ID']
-    spl_map_sale['AMOUNT'] = lambda r: abs(r['Gross']) if r['Gross'] is not None else 'NULL!'
+    spl_map_sale['AMOUNT'] = lambda r: abs(r['Gross']) #if r['Gross'] is not None else 'NULL!'
 
     # The fee (associated with the payment)
     spl_map_fee = spl_map.copy()
@@ -123,6 +120,14 @@ def append_sales_as_deposits(paypal, iif_path):
         #---------------
         # Handle the split lines: (1) the fee, and (2) the cart items
 
+        # Figure out the class (assume the cart is full of items from only 
+        # one competition.  If not the only problem will be the fee will be 
+        # partly misallocated.  That's not a big deal!)
+
+        item_class, item_account = qb_account(
+            cur_cart_items.values('Item Title')[0])
+
+        spl_map_fee['CLASS'] = lambda r: item_class
         # (1) The fee associated with the whole transaction.
         spl_fee_table = get_tables_from_mapping(cur_cart_payment, 
                                                 spl_fields, spl_map_fee)
@@ -133,10 +138,15 @@ def append_sales_as_deposits(paypal, iif_path):
         spl_sale_table = get_tables_from_mapping(cur_cart_items, 
                                                  spl_fields, spl_map_sale)
                                             
-        spl_sale_data = spl_sale_table.data()
-        for item_number in range(len(spl_sale_data)):
+        spl_sale_data = spl_sale_table.records()
+        for item in spl_sale_data:
+            item_as_list = list(item)
+            # Figure out the account and class for this item
+            item_class, item_account = qb_account(item['MEMO'])
+            item_as_list[item.flds.index('CLASS')] = item_class
+            item_as_list[item.flds.index('ACCNT')] = item_account
             # Record the sale lines itemizing what was in the cart
-            writer.writerow(spl_sale_data[item_number])
+            writer.writerow(item_as_list)
 
         #---------------
         # Write each transactions' closing statement in the IIF
@@ -151,6 +161,31 @@ def append_sales_as_deposits(paypal, iif_path):
     paypal_without_cart_sales = etl.complement(paypal_without_cart_sales,
                                                cart_items)
     return paypal_without_cart_sales
+
+
+def qb_account(item_title):
+    """
+    Given an item title, returns the appropriate QuickBooks class and account
+    
+    Parameter: item_title
+    Returns: item_class, item_account    
+
+    Note that this is only guaranteed to work for Ticketleap sales, not 
+    PayPal invoices.
+    
+    """
+    if 'Northern' in item_title or 'NLC' in item_title:
+        item_class = 'NLC'
+    else:
+        item_class = 'CCC'
+    
+    if 'Competitor' in item_title:
+        item_account = ('Competition Income:Competitors:'
+                       'Amateur Registration Fees')
+    else:
+        item_account = 'Competition Income:Sales:Tickets:Advance Tickets'
+        
+    return item_class, item_account
 
 
 def append_invoices(paypal, iif_path):
