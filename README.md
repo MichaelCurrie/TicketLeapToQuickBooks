@@ -3,7 +3,7 @@
 
 A little Python utility that converts PayPal transaction data into a format readable by QuickBooks (i.e. an `.iif` file)
 
-Requires the [petl](https://pypi.python.org/pypi/petl) Python [etl](http://en.wikipedia.org/wiki/Extract,_transform,_load) package.
+Requires the [petl](https://pypi.python.org/pypi/petl) Python [ETL](http://en.wikipedia.org/wiki/Extract,_transform,_load) package.
 
 Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html for providing essential .iif file examples.
 
