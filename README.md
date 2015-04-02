@@ -1,7 +1,7 @@
 # Paypal To QuickBooks
 ## pptl2qb.py
 
-A little Python utility that converts PayPal transaction data into a format readable by QuickBooks (i.e. a .iif file)
+A little Python utility that converts PayPal transaction data into a format readable by QuickBooks (i.e. an `.iif` file)
 
 Requires the [petl](https://pypi.python.org/pypi/petl) Python [etl](http://en.wikipedia.org/wiki/Extract,_transform,_load) package.
 
@@ -16,7 +16,7 @@ Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html f
 ###Output:###
 
 - `output.iif` [IIF file](http://www.my-quickbooks-expert.com/import-quickbooks.html) for QuickBooks
-- `unprocessed.csv` file with the unprocessed paypal.csv rows between start_date and end_date
+- `unprocessed.csv` file with the unprocessed `paypal.csv` rows between `start_date` and `end_date`
   - this contains all rows that could not be automatically converted into entries in the `.iif` file by this utility
   - i.e. in the case where no rows could be processed, and all rows in the original `paypal.csv` file lie between `start_date` and `end_date`, `unprocessed.csv` will be a verbatim copy of `paypal.csv`
 
