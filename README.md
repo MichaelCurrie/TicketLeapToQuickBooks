@@ -10,15 +10,15 @@ Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html f
 ###Input:###
 
 - paypal.csv file from PayPal
-- StartDate    (all dates before this date are not processed into the output file)
-- EndDate      (all dates after this date are not processed into the output file)
+- start_date    (all dates before this date are not processed into the output file)
+- end_date      (all dates after this date are not processed into the output file)
 
 ###Output:###
 
 - output.[iif](http://www.my-quickbooks-expert.com/import-quickbooks.html) file for QuickBooks
-- unprocessed.csv file with the unprocessed paypal.csv rows
+- unprocessed.csv file with the unprocessed paypal.csv rows between start_date and end_date
   - this contains all rows that could not be automatically converted into entries in the .iif file by this utility
-  - i.e. in the case where no rows could be processed, unprocessed.csv will be a verbatim copy of paypal.csv
+  - i.e. in the case where no rows could be processed, and all rows in the original paypal.csv file lie between start_date and end_date, unprocessed.csv will be a verbatim copy of paypal.csv
 
 ###Implementation details###
 - Takes both input .csv files and put them into an SQLite database, joining on the common fields
