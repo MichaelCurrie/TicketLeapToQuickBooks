@@ -183,16 +183,7 @@ def append_sales_as_deposits(paypal, iif_path):
         #---------------
         # Write each transactions' closing statement in the IIF
         writer.writerow(['ENDTRNS'] + ['']*32)
-        # Let's double check that the split adds up to the transaction!
-        #assert(trns_total == -spl_total)
-        """
-        if(abs(trns_total + spl_total) >= 0.01):
-            raise Exception("Split ($" + str(spl_total) + ") does not equal " +
-                            "transaction ($" + str(trns_total) + ") " +
-                            "for Name = " + trns_table.values('NAME')[0] + 
-                            " on (rounded up to day 13) date " + 
-                            trns_table.values('DATE')[0])
-        """
+
     iif_file.close()
 
     # RETURN UNUSED ROWS
