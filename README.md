@@ -21,14 +21,17 @@ Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html f
   - i.e. in the case where no rows could be processed, and all rows in the original `paypal.csv` file lie between `start_date` and `end_date`, `unprocessed.csv` will be a verbatim copy of `paypal.csv`
 
 ###Implementation details###
-- Takes both input `.csv` files and put them into an SQLite database, joining on the common fields
-  - For `ticketleap.csv`, the fields are `Buyer Email`, `Date of Purchase`, `Ticket Net Proceeds`
-  - For `paypal.csv`, the corresponding fields are `From Email Address`, `Date`, `Gross`
-- This will likely only work for `ticketleap.csv` rows with `Order Method` = `Web-Online`, as the `Web-Onsite` ones appear to be the manual entries that do not appear in the PayPal record directly: they might have been settled with cash, or cheque, or by Grace or Michael manually invoicing ourselves and paying with the user's credit card.
-- Need to make sure date is properly represented (and just round to the nearest day since the paypal and ticketleap times will be slightly different)
-- There is still a possibility of someone making two orders for the exact same amount in the same day, but that just means a duplicate QuickBooks entry too, so that's okay.
+1. Take the input `.csv` files and render it as a petl table object
+2. Clean up the data, formats dates and numbers properly, etc, remove unneeded columns and rows not between the desired dates
+3. Eliminate cancelled transactions and their associated cart items
+4. Append to `output.iif` three kinds of transactions I bothered to handle automatically:
+  - append_sales_as_deposits
+  - append_invoices
+  - append_TicketLeap_fees
+5. Generate `output.iif`
+6. Generate `unprocessed.csv`, which contains all transactions not handled by the above and that will therefore need to be entered into QuickBooks manually.
 
-Then generate `output.iif`:
+###Details of `output.iif`###
 
 This is a text file, whose first three lines are:
 
