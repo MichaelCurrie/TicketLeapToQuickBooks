@@ -83,11 +83,13 @@ def paypal_to_quickbooks(paypal_path,
         pass
 
     # Start with the names data, add that to the .IIF file.
-    get_customer_names(paypal).appendtsv(iif_path, write_header=True)
+    #get_customer_names(paypal).appendtsv(iif_path, write_header=True)
 
     # TicketLeap fees have a header for both the transaction and the split
     # so I have to write to the IIF file within the function
-    paypal = append_TicketLeap_fees(paypal, iif_path)
+    #paypal = append_TicketLeap_fees(paypal, iif_path)
+
+    paypal = paypal.head(2)
 
     # TicketLeap sales receipts make up the bulk of the transactions
     paypal = append_sales_as_deposits(paypal, iif_path)
