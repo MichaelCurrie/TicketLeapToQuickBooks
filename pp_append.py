@@ -34,17 +34,18 @@ def append_sales_as_deposits(paypal, iif_path):
                           'Transaction ID']
 
     trns_fields = ['!TRNS', 'TRNSID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
-                   'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
+                   'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR', 'PAYMETH']
 
     # "spl" for "split", a term in QuickBooks for how a transaction is broken
     # down (or "split") into the items underlying the transaction
     # Like if you spent $10, the split might be two rows: $2 for a banana and 
     # $8 for a magazine.
     spl_fields  = ['!SPL', 'SPLID', 'TRNSTYPE', 'DATE', 'ACCNT', 'NAME', 
-                   'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR']
+                   'CLASS', 'AMOUNT', 'DOCNUM', 'MEMO', 'CLEAR', 'PAYMETH']
 
     #fee_acct = 'Operational Expenses:Association Administration:Bank Fees:PayPal Fees'
     fee_acct = 'Competition Expenses:Sales:Ticketing:PayPal Fees'
+    discount_acct = 'Competition Expenses:Advertising & Sponsorship:Promotions:Early Bird'
 
     # SPECIFY SOURCE/DEST MAPPINGS
     # Here's how the QuickBooks file really maps to PayPal
@@ -56,8 +57,8 @@ def append_sales_as_deposits(paypal, iif_path):
     trns_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
     trns_map['ACCNT'] = lambda r: 'PayPal Account'
     trns_map['CLASS'] = lambda r: ''  # The real class is in the split items
-    trns_map['AMOUNT'] = lambda r: r['Gross']-abs(r['Fee'])
-    trns_map['MEMO'] = lambda r: 'TicketLeap ticket sale (Python auto-loaded)'
+    trns_map['AMOUNT'] = lambda r: round(r['Gross']-abs(r['Fee']), 2)
+    trns_map['MEMO'] = lambda r: 'TicketLeap ticket sale'
     trns_map['CLEAR'] = lambda r: 'N'
     
     spl_map = {}
@@ -65,6 +66,7 @@ def append_sales_as_deposits(paypal, iif_path):
     spl_map['TRNSTYPE'] = lambda r: 'DEPOSIT'
     spl_map['DATE'] = lambda r: r['Date'].strftime('%m/%d/%Y') #'{dt.month}/{dt.day}/{dt.year}'.format(dt=r['Date'])
     spl_map['CLEAR'] = lambda r: 'N'
+    spl_map['PAYMETH'] = lambda r: 'Paypal'
 
     # The ticket sale
     spl_map_sale = spl_map.copy()
@@ -72,13 +74,20 @@ def append_sales_as_deposits(paypal, iif_path):
     spl_map_sale['MEMO'] = lambda r: r['Item Title'] + ' ' + r['Item ID']
     # For some reason QuickBooks wants the sale amount to be negative and the 
     # FEE (see spl_map_fee below) to be positive!  Ah, QuickBooks...
-    spl_map_sale['AMOUNT'] = lambda r: -abs(r['Gross']) #if r['Gross'] is not None else 'NULL!'
+    spl_map_sale['AMOUNT'] = lambda r: round(-abs(r['Gross']), 2)
 
     # The fee (associated with the payment)
     spl_map_fee = spl_map.copy()
     spl_map_fee['ACCNT'] = lambda r: fee_acct
     spl_map_fee['MEMO'] = lambda r: 'Standard PayPal $0.30 + 2.9% for TicketLeap ticket sale fulfillment'
-    spl_map_fee['AMOUNT'] = lambda r: abs(r['Fee'])
+    spl_map_fee['AMOUNT'] = lambda r: round(abs(r['Fee']), 2)
+
+    # The discount (associated with the payment)
+    spl_map_discount = spl_map.copy()
+    spl_map_discount['NAME'] = lambda r: r['Name']    
+    spl_map_discount['ACCNT'] = lambda r: discount_acct
+    spl_map_discount['MEMO'] = lambda r: 'Discount for buying early'
+    
 
     # PREPARE CART PAYMENTS TABLE
     # Sales receipts are organized in the CSV file as a row to summarize,
@@ -116,13 +125,15 @@ def append_sales_as_deposits(paypal, iif_path):
 
         trns_table = get_tables_from_mapping(cur_cart_payment, 
                                              trns_fields, trns_map)
+        trns_total = trns_table.values('AMOUNT')[0]
 
         # Write the master payment line for the transaction
         # We assume there's one row (see assert above)
         writer.writerow(list(trns_table.data()[0]) + ['']*22)
 
         #---------------
-        # Handle the split lines: (1) the fee, and (2) the cart items
+        # Handle the split lines: (1) the fee, and (2) the cart items,
+        # and the (3) discount, if any
 
         # Figure out the class (assume the cart is full of items from only 
         # one competition.  If not the only problem will be the fee will be 
@@ -135,13 +146,14 @@ def append_sales_as_deposits(paypal, iif_path):
         # (1) The fee associated with the whole transaction.
         spl_fee_table = get_tables_from_mapping(cur_cart_payment, 
                                                 spl_fields, spl_map_fee)
-        # Again we can ssume there's one row (see assert above)
+        # Again we can assume there's one row (see assert above)
         writer.writerow(list(spl_fee_table.data()[0]) + ['']*22) 
 
         # (2) Handle the split lines for the cart items
         spl_sale_table = get_tables_from_mapping(cur_cart_items, 
                                                  spl_fields, spl_map_sale)
-                                            
+                             
+        spl_total = spl_fee_table.values('AMOUNT')[0]
         spl_sale_data = spl_sale_table.records()
         for item in spl_sale_data:
             item_as_list = list(item)
@@ -151,11 +163,36 @@ def append_sales_as_deposits(paypal, iif_path):
             item_as_list[item.flds.index('ACCNT')] = item_account
             # Record the sale lines itemizing what was in the cart
             writer.writerow(item_as_list + ['']*22)
+            spl_total += item_as_list[item.flds.index('AMOUNT')]
+
+
+        # (3) The discount associated with the whole transaction. (if any)
+        #     since paypal does not actually provide this as a separate field
+        #     we must infer it from the difference between the transaction
+        #     payment total and the split total
+        if(abs(trns_total + spl_total) >= 0.01):
+            spl_map_discount['CLASS'] = lambda r: item_class            
+            spl_map_discount['AMOUNT'] = \
+                lambda r: -round(trns_total + spl_total, 2)
+            spl_discount_table = get_tables_from_mapping(cur_cart_payment, 
+                                                         spl_fields, 
+                                                         spl_map_discount)
+            # Again we can assume there's one row (see assert above)
+            writer.writerow(list(spl_discount_table.data()[0]) + ['']*22) 
 
         #---------------
         # Write each transactions' closing statement in the IIF
         writer.writerow(['ENDTRNS'] + ['']*32)
-
+        # Let's double check that the split adds up to the transaction!
+        #assert(trns_total == -spl_total)
+        """
+        if(abs(trns_total + spl_total) >= 0.01):
+            raise Exception("Split ($" + str(spl_total) + ") does not equal " +
+                            "transaction ($" + str(trns_total) + ") " +
+                            "for Name = " + trns_table.values('NAME')[0] + 
+                            " on (rounded up to day 13) date " + 
+                            trns_table.values('DATE')[0])
+        """
     iif_file.close()
 
     # RETURN UNUSED ROWS
