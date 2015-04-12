@@ -5,7 +5,7 @@ A little Python utility that converts PayPal transaction data into a format read
 
 Requires the [petl](https://pypi.python.org/pypi/petl) Python [ETL](http://en.wikipedia.org/wiki/Extract,_transform,_load) package.
 
-Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html for providing essential .iif file examples.
+Thanks very much to [http://www.my-quickbooks-expert.com/import-quickbooks.html](http://www.my-quickbooks-expert.com/import-quickbooks.html) for providing essential `.iif` file examples.
 
 ###Input:###
 
