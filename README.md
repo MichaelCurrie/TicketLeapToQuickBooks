@@ -31,6 +31,12 @@ Thanks very much to http://www.my-quickbooks-expert.com/import-quickbooks.html f
 5. Generate `output.iif`
 6. Generate `unprocessed.csv`, which contains all transactions not handled by the above and that will therefore need to be entered into QuickBooks manually.
 
+
+###Summary of transaction types implemented###
+
+![](https://github.com/MichaelCurrie/TicketLeapToQuickBooks/blob/master/documentation/transaction%20types.jpeg)
+
+
 ###Details of `output.iif`###
 
 This is a text file, whose first three lines are:
