@@ -4,6 +4,7 @@
 
 PayPal API reference:
 https://developer.paypal.com/docs/api/
+(not used; instead we require that the transactions be exported to CSV and then this program just deals with that CSV file)
 
 TicketLeap API reference:
 http://dev.TicketLeap.com/
