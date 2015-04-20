@@ -60,39 +60,3 @@ Which appears as:
 
 ![](https://github.com/MichaelCurrie/TicketLeapToQuickBooks/blob/master/documentation/deposit.jpeg)
 
-###Types of transactions from PayPal###
-
-1. Ticketleap ticket sale
-```
-TRNS	"1/3/2015"	"Paypal Account"	"Stephen Spielberg"	"Shopping Cart Payment Received"	225.46	"Memo for whole deposit"	
-SPL	"1/3/2015"	"Other Income"	"Stephen Spielberg"	-232.50
-SPL	"1/3/2015"	"Other Expenses"	Fee	7.04
-ENDTRNS
-```
-
-2. Paypal money sent
-
-
-
-Keyword	Description
-```
-!ACCNT    	Details about your chart of accounts.
-!CUST	      A customer address or phone list.
-!VEND	      A vendor address or phone list.
-!EMP	      A list of employees.
-!OTHERNAME	A list of names you'd like to add to QuickBooks Other Name list.
-!BUD	      Budget details.
-!CLASS	    A list of general classifications you'd like to add to QuickBooks Class list.
-!CTYPE	    A list of customer classifications you'd like to add to QuickBooks Customer Type list.
-!INVITEM	  Details about the line items you use on sales and purchase forms.
-!INVMEMO	  Messages you'd like to add to QuickBooks Customer Message list.
-!PAYMETH	  A list of payment methods you'd like to add to QuickBooks Payment Method list.
-!SHIPMETH	  A list of shipping methods you'd like to add to QuickBooks Ship Via list.
-!TERMS	    A list of payment terms you'd like to add to QuickBooks Terms list.
-!TIMEACT	  Details about activities you timed with the QuickBooks Timer. Works with !TIMERHDR.
-!TIMERHDR	  QuickBooks Timer data.
-!TODO     	A list of upcoming "to do" tasks you want QuickBooks to remind you about.
-!TRNS	      Transactions.
-!VTYPE	    A list of vendor classifications you'd like to add to QuickBooks Vendor Type list.
-```
-
