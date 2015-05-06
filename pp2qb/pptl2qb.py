@@ -13,33 +13,23 @@ http://dev.TicketLeap.com/
 """
 
 import petl as etl
-import csv, sys, os, datetime
-from pp_helper import cleanup_paypal, eliminate_cancellations, get_customer_names
-from pp_append import append_sales_as_deposits, append_invoices, append_TicketLeap_fees
+import csv, os
+from .pp_helper import cleanup_paypal, eliminate_cancellations, get_customer_names
+from .pp_append import append_sales_as_deposits, append_invoices, append_TicketLeap_fees
 
-
-def main(argv):
-    """
-    INPUT: paypal.csv
-    OUTPUT: output.iif and unprocessed.csv
-    
-    """
-    etl.config.look_style = 'minimal'
-    input_folder = 'C:\\Users\\mcurrie\\Desktop\\GitHub\\TicketLeapToQuickBooks'
-    #input_folder = 'C:\\Users\\Michael\\Desktop\\TicketLeapToQuickBooks'
-    paypal_path = os.path.join(input_folder, 'paypal.csv')
-
-    paypal_to_quickbooks(paypal_path, 
-                         start_date=datetime.date(2015, 1, 1))
-    
     
 def paypal_to_quickbooks(paypal_path, 
                          iif_path=None, unprocessed_path=None, 
                          start_date=None, end_date=None):
     """
     Process the paypal CSV into a QuickBooks 
+
+    INPUT: paypal.csv
+    OUTPUT: output.iif and unprocessed.csv
     
     """
+    etl.config.look_style = 'minimal'
+
     if iif_path is None:
         # If no iif path was specified, default to the same folder
         # as the input, and filename = 'output.iif'
@@ -107,6 +97,3 @@ def paypal_to_quickbooks(paypal_path,
     writer.writerows(paypal)
     unprocessed_file.close()
 
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
