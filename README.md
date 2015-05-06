@@ -1,5 +1,6 @@
 # Paypal To QuickBooks
-## pptl2qb.py
+
+[![Build Status](https://travis-ci.org/MichaelCurrie/TicketLeapToQuickBooks.svg?branch=master)](https://travis-ci.org/MichaelCurrie/TicketLeapToQuickBooks)
 
 A little Python utility that converts PayPal transaction data - which may have been induced by PayPal acting as the fulfillment system for a TicketLeap account - into a format readable by QuickBooks Desktop (via the admittedly deprecated `.iif` file format).
 
